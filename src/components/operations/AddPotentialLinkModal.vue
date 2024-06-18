@@ -62,13 +62,18 @@ const potentialLinksToAdd = computed(() => {
     }
 
     let combinations = [];
-    Object.keys(selectedPotentialLinkFacts.value).forEach((factName, i) => {
-        combinations.push(selectedPotentialLinkFacts.value[factName].facts.filter((fact) => fact.selected).map((fact) => `${factName.length}|${factName}${fact.value}`));
-        if (selectedPotentialLinkFacts.value[factName].customValue) {
-            combinations[i].push(`${factName.length}|${factName}${selectedPotentialLinkFacts.value[factName].customValue}`);
-        }
-    });
+
+	Object.keys(selectedPotentialLinkFacts.value).forEach((factName, i) => {
+		let factObject = selectedPotentialLinkFacts.value[factName];
+		let selectedFacts = factObject.facts.filter(fact => fact.selected);
+		combinations.push(selectedFacts.map(fact => ({name: factName, value: fact.value})));
+
+		if (factObject.customValue) {
+			combinations[i].push({name: factName, value: factObject.customValue});
+		}
+	});
     combinations = cartesian(combinations);
+    
     let executor;
     if (selectedPotentialLink.value.executors) {
         executor = selectedPotentialLink.value.executors.find((e) => filters.executor === e.name && filters.agent.platform === e.platform);
@@ -86,19 +91,17 @@ const potentialLinksToAdd = computed(() => {
         return links;
     }
 
-    combinations.forEach((factGroup) => {
+    combinations.forEach((factObject) => {
         let command = potentialLinkCommand.value;
-        factGroup.forEach((fact) => {
-            let factNameLength = fact.split('|', 1)[0], restOfFact = fact.slice(1+factNameLength.length);
-            command = command.replaceAll(`#{${restOfFact.slice(0, parseInt(factNameLength))}}`, restOfFact.slice(parseInt(factNameLength)));
+        factObject.forEach((fact, i) => {
+            command = command.replaceAll(`#{${fact.name}}`, fact.value);
         });
 
         links.push({
             ability: selectedPotentialLink.value,
             paw: filters.agent.paw,
-            facts: factGroup.map((fact) => { 
-                let split = fact.split('|');
-                return { trait: split[0], value: '1' };
+            facts: factObject.map((fact) => { 
+                return { trait: fact.name, value: '1' };
             }),
             executor: {
                 ...executor,
